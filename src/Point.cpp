@@ -5,3 +5,4 @@ double distance(Point& a, Point& b) {
 }
 
 Point::Point(double x, double y) : x(x), y(y) {}
+Point::Point() : x(0), y(0) {}

@@ -7,6 +7,7 @@ class Point {
     public:
         double x, y;
         Point(double x, double y);
+        Point();
 };
 
 double distance(Point& a, Point& b);

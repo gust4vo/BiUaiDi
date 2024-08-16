@@ -8,11 +8,11 @@ class Pair {
 public:
     union {
         Data* data;
-        QuadTree* region;
+        int regionIndex;
     };
     double distance;
     Pair(Data*& data, double& distance);
-    Pair(QuadTree*& region, double& distance);
+    Pair(int& regionIndex, double& distance);
     Pair();
 };
 

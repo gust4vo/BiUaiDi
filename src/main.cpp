@@ -55,8 +55,7 @@ void insertData(QuadTree& q, const std::string& filename) {
 }
 
 int main() {
-    Rectangle r(Point(0, 0), Point(10000000.0, 10000000.0));
-    QuadTree q(r);
+    QuadTree q(105);
 
     insertData(q, "geracarga.base");
 

@@ -1,14 +1,10 @@
 #include "QuadTree.hpp"
 
-QuadTree::QuadTree(const Rectangle& r, Data* data) : data(data), boundary(r), bottomRight(nullptr), 
-                    bottomLeft(nullptr), topRight(nullptr), topLeft(nullptr) {}
-            
-QuadTree::~QuadTree() {
-    delete bottomRight;
-    delete bottomLeft;
-    delete topRight;
-    delete topLeft;    
-}
+Node::Node(const Rectangle& r, Data* d) : boundary(r), data(d), bottomRight(-1), 
+              bottomLeft(-1), topRight(-1), topLeft(-1) {}
+
+Node::Node() : data(nullptr), bottomRight(-1), bottomLeft(-1), topRight(-1), topLeft(-1) {}
+
 
 Data::Data(Point& point, const std::string& neighborhood_name, const std::string& street_type, const std::string& street_name, 
             const std::string& region_name, const std::string& address_id, int property_number, int street_id, int zip_code, bool activated)
@@ -16,32 +12,56 @@ Data::Data(Point& point, const std::string& neighborhood_name, const std::string
             region_name(region_name), address_id(address_id), property_number(property_number), street_id(street_id), 
             zip_code(zip_code), activated(activated) {}
 
+QuadTree::QuadTree(int capacity) : capacity(capacity), size(1) {
+    nodes = new Node[capacity];
+    nodes[0].boundary = Rectangle(Point(0, 0), Point(10000000.0, 10000000.0));
+}
+
+QuadTree::~QuadTree() {
+    delete[] nodes;  
+}
+
 bool QuadTree::insert(Data* data) {
-    if (!boundary.containsPoint(data->point)) {
+    if (!nodes[0].boundary.containsPoint(data->point)) {
         return false;
     }
 
-    if (this->data == nullptr) {
-        this->data = data;
-        return true;
-    } 
+    int nodeIndex = 0;
+    while (true) {
+        if (nodes[nodeIndex].data == nullptr) {
+            nodes[nodeIndex].data = data;
+            return true;
+        } 
 
-    if (bottomLeft == nullptr) divide();
+        if (nodes[nodeIndex].bottomLeft == -1)
+            divide(nodeIndex);
 
-    if (bottomLeft->insert(data))       return true;
-    else if (topLeft->insert(data))     return true;
-    else if (topRight->insert(data))    return true;
-    else if (bottomRight->insert(data)) return true;
-    return false;
+        if (nodes[nodes[nodeIndex].bottomLeft].boundary.containsPoint(data->point)) {
+            nodeIndex = nodes[nodeIndex].bottomLeft;
+        } else if (nodes[nodes[nodeIndex].topLeft].boundary.containsPoint(data->point)) {
+            nodeIndex = nodes[nodeIndex].topLeft;
+        } else if (nodes[nodes[nodeIndex].topRight].boundary.containsPoint(data->point)) {
+            nodeIndex = nodes[nodeIndex].topRight;
+        } else if (nodes[nodes[nodeIndex].bottomRight].boundary.containsPoint(data->point)) {
+            nodeIndex = nodes[nodeIndex].bottomRight;
+        }
+    }
 }
 
-void QuadTree::divide() {
-    Point mid(data->point.x, data->point.y);
+void QuadTree::divide(int nodeIndex) {
+    Point mid(nodes[nodeIndex].data->point.x, nodes[nodeIndex].data->point.y);
 
-    bottomRight = new QuadTree(Rectangle(Point(mid.x, boundary.bottomLeft.y), Point(boundary.topRight.x, mid.y)));
-    bottomLeft  = new QuadTree(Rectangle(Point(boundary.bottomLeft.x, boundary.bottomLeft.y), mid));
-    topRight    = new QuadTree(Rectangle(mid, Point(boundary.topRight.x, boundary.topRight.y)));
-    topLeft     = new QuadTree(Rectangle(Point(boundary.bottomLeft.x, mid.y), Point(mid.x, boundary.topRight.y)));
+    nodes[size++] = Node(Rectangle(Point(mid.x, nodes[nodeIndex].boundary.bottomLeft.y), Point(nodes[nodeIndex].boundary.topRight.x, mid.y)));
+    nodes[nodeIndex].bottomRight = size - 1;
+
+    nodes[size++] = Node(Rectangle(Point(nodes[nodeIndex].boundary.bottomLeft.x, nodes[nodeIndex].boundary.bottomLeft.y), mid));
+    nodes[nodeIndex].bottomLeft  = size - 1;
+
+    nodes[size++] = Node(Rectangle(mid, Point(nodes[nodeIndex].boundary.topRight.x, nodes[nodeIndex].boundary.topRight.y)));
+    nodes[nodeIndex].topRight    = size - 1;
+
+    nodes[size++] = Node(Rectangle(Point(nodes[nodeIndex].boundary.bottomLeft.x, mid.y), Point(mid.x, nodes[nodeIndex].boundary.topRight.y)));
+    nodes[nodeIndex].topLeft     = size - 1;
 }
 
 double QuadTree::distanceToBoundary(const Point& target, const Rectangle& boundary) const {
@@ -63,79 +83,81 @@ double QuadTree::distanceToBoundary(const Point& target, const Rectangle& bounda
 }
 
 
-void QuadTree::knnSearch(Point& target, MinHeap& heap) {
-    if (data != nullptr && data->activated) {
-        double dist = distance(target, data->point);
+void QuadTree::knnSearch(Point& target, MinHeap& heap, int nodeIndex) {
+
+    if (nodes[nodeIndex].data != nullptr && nodes[nodeIndex].data->activated) {
+        double dist = distance(target, nodes[nodeIndex].data->point);
         if (!heap.full()) {
-            heap.push(Pair(data, dist));
+            heap.push(Pair(nodes[nodeIndex].data, dist));
         } else {
-            heap.update(Pair(data, dist));
+            heap.update(Pair(nodes[nodeIndex].data, dist));
         }
     }
 
-    if (bottomLeft == nullptr) return; 
+    if (nodes[nodeIndex].bottomLeft == -1) return; 
 
     MinHeap regions(4);
      
-    if (bottomRight != nullptr) {
-        double dist = distanceToBoundary(target, bottomRight->boundary);
-        regions.push(Pair(bottomRight, dist));
+    if (nodes[nodeIndex].bottomRight != -1) {
+        double dist = distanceToBoundary(target, nodes[nodes[nodeIndex].bottomRight].boundary);
+        regions.push(Pair(nodes[nodeIndex].bottomRight, dist));
     }
-    if (bottomLeft != nullptr) {
-        double dist = distanceToBoundary(target, bottomLeft->boundary);
-        regions.push(Pair(bottomLeft, dist));
+    if (nodes[nodeIndex].bottomLeft != -1) {
+        double dist = distanceToBoundary(target, nodes[nodes[nodeIndex].bottomLeft].boundary);
+        regions.push(Pair(nodes[nodeIndex].bottomLeft, dist));
     }
-    if (topRight != nullptr) {
-        double dist = distanceToBoundary(target, topRight->boundary);
-        regions.push(Pair(topRight, dist));
+    if (nodes[nodeIndex].topRight != -1) {
+        double dist = distanceToBoundary(target, nodes[nodes[nodeIndex].topRight].boundary);
+        regions.push(Pair(nodes[nodeIndex].topRight, dist));
     }
-    if (topLeft != nullptr) {
-        double dist = distanceToBoundary(target, topLeft->boundary);
-        regions.push(Pair(topLeft, dist));
+    if (nodes[nodeIndex].topLeft != -1) {
+        double dist = distanceToBoundary(target, nodes[nodes[nodeIndex].topLeft].boundary);
+        regions.push(Pair(nodes[nodeIndex].topLeft, dist));
     }
 
     while(!regions.empty()) {
-        regions.pop().region->knnSearch(target, heap);
+        knnSearch(target, heap, regions.pop().regionIndex);
     }
 }
 
-void QuadTree::activate(std::string id) {
-    if (data != nullptr && data->address_id == id) {
-        if(data->activated) {
+void QuadTree::activate(std::string id, int nodeIndex) {
+    if (nodes[nodeIndex].data != nullptr && nodes[nodeIndex].data->address_id == id) {
+        if (nodes[nodeIndex].data->activated) {
             std::cout << "Ponto de recarga " << id << " já estava ativo." << std::endl;
         } else {
+            nodes[nodeIndex].data->activated = true;
             std::cout << "Ponto de recarga " << id << " ativado." << std::endl;
-            data->activated = true;
         }
         return;
     }
 
-    if (bottomLeft == nullptr) {
+    if (nodes[nodeIndex].bottomLeft == -1) {
         return;
     }
 
-    if (bottomLeft != nullptr) bottomLeft->activate(id);
-    if (bottomRight != nullptr) bottomRight->activate(id);
-    if (topLeft != nullptr) topLeft->activate(id);
-    if (topRight != nullptr) topRight->activate(id);
+    if (nodes[nodeIndex].bottomLeft != -1) activate(id, nodes[nodeIndex].bottomLeft);
+    if (nodes[nodeIndex].bottomRight != -1) activate(id, nodes[nodeIndex].bottomRight);
+    if (nodes[nodeIndex].topLeft != -1) activate(id, nodes[nodeIndex].topLeft);
+    if (nodes[nodeIndex].topRight != -1) activate(id, nodes[nodeIndex].topRight);
 }
-void QuadTree::desactivate(std::string id) {
-    if (data != nullptr && data->address_id == id) {
-        if(!data->activated) {
+
+void QuadTree::desactivate(std::string id, int nodeIndex) {
+    if (nodes[nodeIndex].data != nullptr && nodes[nodeIndex].data->address_id == id) {
+        if (!nodes[nodeIndex].data->activated) {
             std::cout << "Ponto de recarga " << id << " já estava desativado." << std::endl;
         } else {
+            nodes[nodeIndex].data->activated = false;
             std::cout << "Ponto de recarga " << id << " desativado." << std::endl;
-            data->activated = false;
         }
         return;
     }
 
-    if (bottomLeft == nullptr) {
+    if (nodes[nodeIndex].bottomLeft == -1) {
         return;
     }
 
-    if (bottomLeft != nullptr) bottomLeft->desactivate(id);
-    if (bottomRight != nullptr) bottomRight->desactivate(id);
-    if (topLeft != nullptr) topLeft->desactivate(id);
-    if (topRight != nullptr) topRight->desactivate(id);
+    if (nodes[nodeIndex].bottomLeft != -1) desactivate(id, nodes[nodeIndex].bottomLeft);
+    if (nodes[nodeIndex].bottomRight != -1) desactivate(id, nodes[nodeIndex].bottomRight);
+    if (nodes[nodeIndex].topLeft != -1) desactivate(id, nodes[nodeIndex].topLeft);
+    if (nodes[nodeIndex].topRight != -1) desactivate(id, nodes[nodeIndex].topRight);
 }

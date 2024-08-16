@@ -1,6 +1,7 @@
 #include "Rectangle.hpp"
 
 Rectangle::Rectangle(Point bottomLeft, Point topRight) : bottomLeft(bottomLeft), topRight(topRight) {}
+Rectangle::Rectangle() {}
 
 // Verifies if the point is contained on the rectangle limits
 bool Rectangle::containsPoint(Point& p) {

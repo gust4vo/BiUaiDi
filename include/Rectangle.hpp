@@ -6,8 +6,9 @@
 class Rectangle {
     public:
         Point bottomLeft, topRight; 
-        Rectangle(Point bottomLeft, Point topRight);
         bool containsPoint(Point& p);
+        Rectangle(Point bottomLeft, Point topRight);
+        Rectangle();
 };
 
 #endif

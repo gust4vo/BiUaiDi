@@ -8,7 +8,7 @@ INCDIR = include
 
 SOURCES = $(wildcard $(SRCDIR)/*.cpp)
 OBJECTS = $(SOURCES:$(SRCDIR)/%.cpp=$(OBJDIR)/%.o)
-TARGET = $(BINDIR)/tp2.out
+TARGET = $(BINDIR)/tp3.out
 
 all: $(TARGET)
 
