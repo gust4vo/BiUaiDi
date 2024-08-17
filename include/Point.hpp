@@ -3,6 +3,7 @@
 
 #include <cmath>
 
+// Simple class for representing a point in 2d space with coordinates (x, y)
 class Point {
     public:
         double x, y;

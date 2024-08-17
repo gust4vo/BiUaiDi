@@ -1,15 +1,19 @@
-#include <iostream>
 #include <fstream>
 #include <sstream>
 #include <iomanip>
-#include <string>
-#include "QuadTree.hpp"  // Inclua o arquivo de definição da classe Data e Point
+#include <chrono>
+#include "QuadTree.hpp"  
 
-void insertData(QuadTree& q, const std::string& filename) {
+// Function to insert data from a file and return the QuadTree.
+QuadTree insertData(const std::string& filename) {
     std::ifstream file(filename);
 
     std::string line;
-    std::getline(file, line);
+    std::getline(file, line);  
+
+    int size = std::stoi(line); // Takes the number of Stations (or addresses) in the first line.
+    QuadTree Stations(4 * size - 3); // Explained on main().
+
     while (std::getline(file, line)) {
         std::stringstream ss(line);
         std::string token;
@@ -39,55 +43,86 @@ void insertData(QuadTree& q, const std::string& filename) {
         int zip_code = std::stoi(token);
 
         std::getline(ss, token, ';');
-        double x = std::stod(token);  // Coordenada X
+        double x = std::stod(token);  // X coordinate
 
         std::getline(ss, token, ';');
-        double y = std::stod(token);  // Coordenada Y
+        double y = std::stod(token);  // Y coordinate
 
-        // Criar o objeto Point e Data
+        // Create a Point and Data object
         Point point(x, y);
-
         Data* data = new Data(point, neighborhood_name, street_type, street_name, region_name, address_id, property_number, street_id, zip_code, true);
-        q.insert(data);
+        Stations.insert(data);
     }
 
     file.close();
+
+    return Stations;
 }
 
-int main() {
-    QuadTree q(105);
+int main(int argc, char* argv[]) {
+    std::string baseFile;
+    std::string eventFile;
 
-    insertData(q, "geracarga.base");
+    if(argc < 5) {
+        baseFile = "geracarga.base";
+        eventFile = "geracarga.ev";
+    } else {
+        for (int i = 1; i < argc; i += 2) {
+            if (std::string(argv[i]) == "-b") baseFile = argv[i + 1];
+            else eventFile = argv[i + 1];
+        }
+    }
 
-    std::ifstream file("geracarga.ev");
+    // In the worst scenario, all nodes will be inserted in a occupped region, creating 4 empty nodes for 1 node.
+    // This gives us a total of 4 * s - 3 nodes (s = number of recharging stations). 
+    // Impossible situation in the real-world, but that's what it will be allocated in the QuadTree to ensure that there's sufficient space.
+    
+    QuadTree Stations = insertData(baseFile);
 
+    std::ifstream file(eventFile);
     std::string line;
-    std::getline(file, line);
+    std::getline(file, line); // Skip the header line, it's not useful.
+    auto start = std::chrono::high_resolution_clock::now();
 
     while(std::getline(file, line)) {
         std::cout << line << std::endl;
         std::istringstream iss(line);
-        char comando; iss >> comando;
-        if (comando == 'C') {
+        char command; iss >> command;
+        if (command == 'C') { // Command 'C' for k-nearest neighbors search.
             double x, y;
             int k;
             iss >> x >> y >> k;
-            MinHeap heap(k);
+            MaxHeap heap(k);
             Point point(x, y);
-            q.knnSearch(point, heap);
-            while (!heap.empty()) {
-                Pair address = heap.pop();
+            Stations.knnSearch(point, heap);
+
+            int neighborhoodSize = heap.getSize();
+            Pair* results = new Pair[neighborhoodSize]; 
+            for(int i = 1; i <= neighborhoodSize; i++) results[neighborhoodSize-i] = heap.pop();
+
+            // Print the k-nearest neighbors.
+            for(int i = 0; i < neighborhoodSize; i++) {
+                Pair address = results[i];
                 std::cout << address.data->street_type << " " <<  address.data->street_name << ", " << 
                  address.data->property_number << ", "<< address.data->neighborhood_name << ", " 
                  << address.data->region_name << ", " << address.data->zip_code << 
                  " (" << std::fixed << std::setprecision(3) << distance(point, address.data->point) << ")" << std::endl;
             }
+            delete[] results; // Clean up the results array.
         }
-        if (comando == 'A' || comando == 'D') {
+
+        // Command 'A' to activate or 'D' to deactivate a recharging station.
+        if (command == 'A' || command == 'D') {
             std::string id;
             iss >> id;
-            comando == 'A' ? q.activate(id) : q.desactivate(id); 
+            command == 'A' ? Stations.activate(id, true) : Stations.activate(id, false); 
         }
     }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+
+    // std::cout << "Tempo de execução: " << elapsed.count() << " segundos" << std::endl;
+
     return 0;
 }

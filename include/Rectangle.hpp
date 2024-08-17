@@ -3,11 +3,16 @@
 
 #include "Point.hpp"
 
+// Class representing a rectangular region
 class Rectangle {
     public:
-        Point bottomLeft, topRight; 
+        Point bottomLeft; // The bottom-left corner of the rectangle.
+        Point topRight;   // The top-right corner of the rectangle.
+
         bool containsPoint(Point& p);
+
         Rectangle(Point bottomLeft, Point topRight);
+
         Rectangle();
 };
 
