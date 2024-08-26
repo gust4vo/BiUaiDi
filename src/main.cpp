@@ -52,7 +52,6 @@ QuadTree* insertData(const std::string& filename, int& size) {
         Point point(x, y);
         Data* data = new Data(point, neighborhood_name, street_type, street_name, region_name, address_id, property_number, street_id, zip_code, true);
         Stations->insert(data);
-        std::cout << "inserido" << std::endl;
     }
 
     file.close();
